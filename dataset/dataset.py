@@ -6,7 +6,8 @@ class CustomDataset(torch.utils.data.Dataset):
     '''
     TODO
     '''
-    def __init__(self, data_path=None, labels_path=None):
+    def __init__(self,
+                 data_path : str=None, labels_path : str=None):
         assert data_path != None, "A valid path to the dataset should be given!"
         assert labels_path != None, "A valid path to the labels should be given!"
         
