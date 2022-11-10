@@ -56,7 +56,8 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=4, shuffle=True, num_workers=4)
 
-    model = Conv2DAutoEncoder(input_size=4096)
+    input_size = torch.tensor(train_data[0][0].size()).prod()
+    model = DenseAutoEncoder(input_size=input_size)
 
     #train(model, train_loader)
     #predict(model, test_loader)

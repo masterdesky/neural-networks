@@ -1,37 +1,66 @@
 import torch
-import torch.nn as nn
 
 from .baseautoencoder import BaseModel
 
 class DenseAutoEncoder(BaseModel):
 
-    def __init__(self, input_size : int):
+    def __init__(self, input_size : int,
+                 *,
+                 levels : int=4,
+                 latent_dim : int=16,
+                 hidden_neurons=None):
         super(DenseAutoEncoder, self).__init__()
 
+        if hidden_neurons is not None:
+            assert len(hidden_neurons) >= 1, "There should be at least 1 hidden layer!"
+        else:
+            assert levels >= 1, "There should be at least 1 hidden layer!"
+            assert latent_dim >=1, "There should be at least 1 neuron in the latent space!"
+
         self.input_size = input_size
+        self.levels = levels
+        self.latent_dim = latent_dim
+        self.hidden_neurons = hidden_neurons
 
-        # Determine the number of neurons in each layer
-        self.n_size = (self.input_size-1).bit_length()
-        self.n_filter = 1<<self.n_size
-        self.layer_size = [self.input_size] + \
-                          [self.n_filter>>(i+1) for i in range(self.n_size-6)]
+        if self.hidden_neurons is None:
+            # Determine the numbers of neurons in each layer
+            self.hidden_neurons = torch.linspace(
+                self.input_size, self.latent_dim, self.levels, 
+                dtype=torch.int16
+            )
+        else:
+            self.hidden_neurons = torch.tensor(self.hidden_neurons, dtype=torch.int16)
 
-    def encoder(self, input_layer):
+        self.encoder = self.create_encoder()
+        self.decoder = self.create_decoder()
+
+    def create_encoder(self):
         encoder = []
-        for i in range(self.n_size-6):
-            encoder.append(nn.Linear(self.input_size, self.n_filter>>(i+1)))
-            encoder.append(nn.ReLU())
-        encoder = nn.Sequential(*tuple(encoder))
-        return encoder(input_layer)
+        h_dim = self.hidden_neurons
+        for prev, next in zip(h_dim, h_dim[1:]):
+            encoder.append(torch.nn.Sequential(
+                torch.nn.Linear(prev, next),
+                torch.nn.ReLU())
+            )
+        encoder = torch.nn.Sequential(*encoder)
+        return encoder
 
-    def decoder(self, latent_layer):
+    def create_decoder(self):
         decoder = []
-        for i in reversed(range(self.n_size-6)):
-            decoder.append(nn.Linear(self.layer_size[i+1], self.layer_size[i]))
-            decoder.append(nn.ReLU())
-        decoder[-1] = nn.Sigmoid()  # Last activation is Sigmoid
-        decoder = nn.Sequential(*tuple(decoder))
-        return decoder(latent_layer)
+        h_dim = torch.flip(self.hidden_neurons, [0])
+        for prev, next in zip(h_dim, h_dim[1:]):
+            decoder.append(torch.nn.Sequential(
+                torch.nn.Linear(prev, next),
+                torch.nn.ReLU())
+            )
+        final_layer = torch.nn.Sequential(
+            torch.nn.Linear(h_dim[-1], h_dim[-1]),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h_dim[-1], self.input_size),
+            torch.nn.Sigmoid()
+        )
+        decoder = torch.nn.Sequential(*decoder, final_layer)
+        return decoder
 
     def forward(self, input_layer):
         return self.decoder(self.encoder(input_layer))
