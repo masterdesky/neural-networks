@@ -38,10 +38,10 @@ class DenseAutoEncoder(BaseModel):
         encoder = []
         h_dim = self.hidden_neurons
         for prev, next in zip(h_dim, h_dim[1:]):
-            encoder.append(torch.nn.Sequential(
-                torch.nn.Linear(prev, next),
-                torch.nn.ReLU())
-            )
+            encoder.append(torch.nn.Linear(prev, next))
+            if not self.no_batchnorm:
+                encoder.append(torch.nn.BatchNorm1d(next))
+            encoder.append(torch.nn.ReLU())
         encoder = torch.nn.Sequential(*encoder)
         return encoder
 
@@ -49,10 +49,10 @@ class DenseAutoEncoder(BaseModel):
         decoder = []
         h_dim = torch.flip(self.hidden_neurons, [0])
         for prev, next in zip(h_dim, h_dim[1:]):
-            decoder.append(torch.nn.Sequential(
-                torch.nn.Linear(prev, next),
-                torch.nn.ReLU())
-            )
+            decoder.append(torch.nn.Linear(prev, next))
+            if not no_batchnorm:
+                decoder.append(torch.nn.BatchNorm1d(next))
+            decoder.append(torch.nn.ReLU())
         final_layer = torch.nn.Sequential(
             torch.nn.Linear(h_dim[-1], h_dim[-1]),
             torch.nn.ReLU(),
